@@ -1,7 +1,7 @@
 import { ApolloServer } from 'apollo-server'
 import gql from 'graphql-tag'
 import fetch from 'node-fetch'
-import { mergeSchemas, makeExecutableSchema } from 'graphql-tools'
+import { mergeSchemas, makeExecutableSchema, addMockFunctionsToSchema } from 'graphql-tools'
 import { createGithubSchema, createGithubResolvers } from './github';
 
 const API_URL = 'https://pokeapi.co/api/v2/pokemon'
@@ -27,7 +27,7 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    async pokemon(_, {name}) {
+    async pokemon(_, { name }) {
       const pokemon = await fetch(`${API_URL}/${name}`).then(d =>
         d.json()
       )
@@ -45,27 +45,42 @@ const localSchema = makeExecutableSchema({
 // create server with ApolloServer
 // typeDefs + resolvers with Query and Mutation
 const createServer = async () => {
-  const extendedUser = gql`
+  try {
+    const extendedUser = gql`
     extend type User {
       profile: Github_User
     }
   `
 
-  const { transformed, og } = await createGithubSchema()
-  const finalSchema = mergeSchemas({
-    schemas: [localSchema, transformed, extendedUser]
-  })
-  const server = new ApolloServer({
-    schema: finalSchema,
-    resolvers: createGithubResolvers(og)
-  })
+    const { transformed, og } = await createGithubSchema()
+    const finalSchema = mergeSchemas({
+      schemas: [localSchema, transformed, extendedUser]
+    })
 
-  server.listen().then(({ url }) => {
-    console.log(`Server ready at ${url}`);
-  })
+    addMockFunctionsToSchema({ schema })
+
+    const server = new ApolloServer({
+      schema: finalSchema,
+      resolvers: createGithubResolvers(og)
+    })
+
+    server.listen().then(({ url }) => {
+      console.log(`Server ready at ${url}`);
+    })
+  } catch (e) {
+    console.log('Error occurred' + e)
+  }
 }
 
 createServer()
+
+/**
+ * Check later
+ * https://www.cloudflare.com/products/cloudflare-workers/
+ * https://fly.io/
+ *
+ * */
+
 /*
   {
     user(login: "yannbf") {
