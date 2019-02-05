@@ -1,6 +1,8 @@
 import { ApolloServer } from 'apollo-server'
 import gql from 'graphql-tag'
 import fetch from 'node-fetch'
+import { mergeSchemas, makeExecutableSchema } from 'graphql-tools'
+import { createGithubSchema, createGithubResolvers } from './github';
 
 const API_URL = 'https://pokeapi.co/api/v2/pokemon'
 
@@ -13,14 +15,13 @@ const typeDefs = gql`
     weight: Float!
   }
 
-  type PokemonResult {
-    name: String!
-    url: String!
+  type User {
+    name: String
   }
 
   type Query {
     pokemon(name: String): Pokemon!
-    pokemons(name: String, limit: Int): [PokemonResult]!
+    user(name: String): User!
   }
 `
 
@@ -30,28 +31,49 @@ const resolvers = {
       const pokemon = await fetch(`${API_URL}/${name}`).then(d =>
         d.json()
       )
+      debugger
       return pokemon;
-    },
-    async pokemons(_, {limit}) {
-      const pokemons = await fetch(`${API_URL}?&limit=${limit}`).then(d =>
-        d.json()
-      )
-      // TODO: get url from each result and do a fetch for it
-      // then remove PokemonResult type and just return [Pokemon]
-      return pokemons.results;
     }
   }
 }
 
-// create server with ApolloServer
-// typeDefs + resolvers with Query and Mutation
-const server = new ApolloServer({ typeDefs, resolvers })
-server.listen().then(({ url }) => {
-  console.log(`Server ready at ${url}`);
+const localSchema = makeExecutableSchema({
+  typeDefs,
+  resolvers
 })
 
+// create server with ApolloServer
+// typeDefs + resolvers with Query and Mutation
+const createServer = async () => {
+  const extendedUser = gql`
+    extend type User {
+      profile: Github_User
+    }
+  `
+
+  const { transformed, og } = await createGithubSchema()
+  const finalSchema = mergeSchemas({
+    schemas: [localSchema, transformed, extendedUser]
+  })
+  const server = new ApolloServer({
+    schema: finalSchema,
+    resolvers: createGithubResolvers(og)
+  })
+
+  server.listen().then(({ url }) => {
+    console.log(`Server ready at ${url}`);
+  })
+}
+
+createServer()
 /*
-{
+  {
+    user(login: "yannbf") {
+    name
+    avatarUrl
+    company
+  }
+ {
   pokemon(name: "pikachu"){
     name,
     height,
