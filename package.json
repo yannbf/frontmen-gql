@@ -6,7 +6,7 @@
   "scripts": {
     "build": "rimraf dist && babel src --out-dir dist --ignore '**/*.spec.js'",
     "dev": "nodemon --exec yarn restart",
-    "restart": "yarn build && node dist/index.js",
+    "restart": "yarn build && node --inspect=0.0.0.0:9229 dist/index.js",
     "test": "jest --forceExit --detectOpenHandles --runInBand"
   },
   "dependencies": {
