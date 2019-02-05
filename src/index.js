@@ -1,82 +1,44 @@
 import { ApolloServer } from 'apollo-server'
 import gql from 'graphql-tag'
+import fetch from 'node-fetch'
 
-const users = [
-  {
-    id: 1,
-    username: 'Jean',
-    friends: [2]
-  },
-  {
-    id: 2,
-    username: 'Claude',
-    friends: [1]
-  },
-  {
-    id: 3,
-    username: 'Van Damme',
-    friends: []
-  },
-]
+const API_URL = 'https://pokeapi.co/api/v2/pokemon'
 
 // create typeDefs
 const typeDefs = gql`
-  # type - Item (name string, done boolean)
-  type Item {
+  type Pokemon {
     name: String!
-    done: Boolean!
+    height: Int
+    id: Int!
+    weight: Float!
   }
 
-  # type User (username string, items: [Item])
-  type User {
-    id: String
-    username: String!
-    friends: [User]
-  }
-
-  input NameInput {
+  type PokemonResult {
     name: String!
+    url: String!
   }
 
-  # create query - getItem
   type Query {
-    getItem: Item
-    user(input: NameInput): User
-  }
-
-  # create input. Type can't be used as argument, so input is used for that.
-  input NewItemInput {
-    name: String!
-  }
-
-  # create mutation - createItem
-  type Mutation {
-    createItem(input: NewItemInput): Item!
+    pokemon(name: String): Pokemon!
+    pokemons(name: String, limit: Int): [PokemonResult]!
   }
 `
 
 const resolvers = {
   Query: {
-    getItem() {},
-    user(_, {input: {name} }) {
-      return users.find(user => user.username === name)
-    }
-  },
-  Mutation: {
-    createItem(_, args, context, info) {
-      console.log(args.input)
-      console.log(JSON.stringify(info, null, 2))
+    async pokemon(_, {name}) {
+      const pokemon = await fetch(`${API_URL}/${name}`).then(d =>
+        d.json()
+      )
+      return pokemon;
     },
-  },
-  User: {
-    friends(user) {
-      return users.filter(u => user.friends.includes === u.id)
-    },
-    username(user) {
-      return user.username
-    },
-    id(user) {
-      return user._id
+    async pokemons(_, {limit}) {
+      const pokemons = await fetch(`${API_URL}?&limit=${limit}`).then(d =>
+        d.json()
+      )
+      // TODO: get url from each result and do a fetch for it
+      // then remove PokemonResult type and just return [Pokemon]
+      return pokemons.results;
     }
   }
 }
@@ -88,6 +50,19 @@ server.listen().then(({ url }) => {
   console.log(`Server ready at ${url}`);
 })
 
-// Check later
-// https://medium.com/the-guild/graphql-code-generator-a34e3785e6fb
-// https://github.com/dotansimha/graphql-code-generator
+/*
+{
+  pokemon(name: "pikachu"){
+    name,
+    height,
+    id
+  }
+}
+{
+  pokemons(limit: 200){
+    name,
+    height,
+    id
+  }
+}
+*/
